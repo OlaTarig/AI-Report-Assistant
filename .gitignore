@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+
+# Env / secrets
+.env
+*.env.local
+
+# Node
+node_modules/
+dist/
+build/
+
+# Uploaded files
+storage/uploads/*
+!storage/uploads/.gitkeep
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Logs
+*.log
