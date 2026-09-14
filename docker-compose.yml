@@ -6,10 +6,25 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: reports
-    ports:
-      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    ports:
+      - "8000:8000"
+    environment:
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/reports
+      UPLOAD_DIR: /data/uploads
+      SESSION_SECRET: local-only-secret
+      PORT: 8000
+    volumes:
+      - uploads_data:/data/uploads
+
 volumes:
   postgres_data:
+  uploads_data:

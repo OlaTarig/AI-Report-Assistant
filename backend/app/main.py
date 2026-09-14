@@ -21,9 +21,6 @@ app.include_router(conversations.router, prefix="/api")
 app.include_router(messages.router, prefix="/api")
 app.include_router(files.router, prefix="/api")
 app.include_router(reports.router, prefix="/api")
-from fastapi.staticfiles import StaticFiles
-
-app.mount("/", StaticFiles(directory="static", html=True), name="static")
 
 @app.get("/api/health")
 async def health():

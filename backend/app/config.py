@@ -5,7 +5,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     gemini_api_key: str
-    database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/reports"
+    database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5433/reports"
     max_file_size_mb: int = 20
     upload_dir: str = "./storage/uploads"
     app_password: str = "changeme"
@@ -13,12 +13,6 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:3000"]
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
-    @field_validator("database_url")
-    @classmethod
-    def fix_async_driver(cls, v: str) -> str:
-            if v.startswith("postgresql://"):
-                return v.replace("postgresql://", "postgresql+asyncpg://", 1)
-            return v
 
 
 @lru_cache
