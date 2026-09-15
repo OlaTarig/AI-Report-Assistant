@@ -7,7 +7,7 @@ export default defineConfig({
     port: 3000,
     proxy: {
       "/api": {
-        target: "http://localhost:8000",
+        target: "https://report-assistant-backend-1029330440039.us-central1.run.app",
         changeOrigin: true,
       },
     },
