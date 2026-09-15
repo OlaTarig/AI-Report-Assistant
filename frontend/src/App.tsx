@@ -106,9 +106,14 @@ export default function App() {
     setFiles((prev) => [...prev, uploaded]);
   }
 
-  function handleExport() {
+    function handleExportWord() {
     if (!activeId) return;
     window.open(`/api/conversations/${activeId}/report/export`, "_blank");
+  }
+
+  function handleExportPdf() {
+    if (!activeId) return;
+    window.open(`/api/conversations/${activeId}/report/export/pdf`, "_blank");
   }
 
   return (
@@ -129,13 +134,21 @@ export default function App() {
           <h1 className="text-lg font-semibold text-gray-800">
             {activeConversation?.title ?? "AI Report Assistant"}
           </h1>
-          {activeId && (
-            <button
-              onClick={handleExport}
-              className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
-            >
-              Download Word
-            </button>
+                    {activeId && (
+            <div className="flex gap-2">
+              <button
+                onClick={handleExportWord}
+                className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
+              >
+                Download Word
+              </button>
+              <button
+                onClick={handleExportPdf}
+                className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
+              >
+                Download PDF
+              </button>
+            </div>
           )}
         </header>
 
