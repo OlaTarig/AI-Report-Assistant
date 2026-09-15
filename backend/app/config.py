@@ -5,7 +5,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     gemini_api_key: str
-    database_url: str = "sqlite+aiosqlite:///./app.db"
+    database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5433/reports"
     max_file_size_mb: int = 20
     upload_dir: str = "./storage/uploads"
     app_password: str = "changeme"

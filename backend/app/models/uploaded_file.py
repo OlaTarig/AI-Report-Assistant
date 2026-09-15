@@ -2,8 +2,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import DateTime, ForeignKey, Integer, String, func
-from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy import JSON
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -22,7 +21,7 @@ class UploadedFile(Base):
 
     # Cached, processed output — e.g. extracted text, sheet summaries.
     # Null until processing succeeds; keeps us from re-parsing on every message.
-    extracted_content: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    extracted_content: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
