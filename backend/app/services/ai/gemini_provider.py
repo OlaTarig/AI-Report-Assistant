@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import AsyncIterator
 
 from google import genai
@@ -10,6 +11,22 @@ _ROLE_MAP = {
     MessageRole.USER: "user",
     MessageRole.ASSISTANT: "model",
 }
+
+
+async def _with_retry(fn, max_attempts: int = 3):
+    """Gemini occasionally returns transient overload/503 ('high demand')
+    errors — retry with a short backoff instead of failing the user's
+    request on the first hiccup."""
+    last_exc = None
+    for attempt in range(max_attempts):
+        try:
+            return await fn()
+        except Exception as exc:
+            last_exc = exc
+            if attempt == max_attempts - 1:
+                raise
+            await asyncio.sleep(1.5 * (attempt + 1))
+    raise last_exc
 
 
 def _build_contents(messages: list[ChatMessage], files: list[FileContext] | None) -> list[dict]:
@@ -51,8 +68,10 @@ class GeminiProvider(AIProvider):
         contents = _build_contents(messages, files)
         config = genai_types.GenerateContentConfig(system_instruction=system_prompt)
 
-        response = await self._client.aio.models.generate_content(
-            model=self._model, contents=contents, config=config
+        response = await _with_retry(
+            lambda: self._client.aio.models.generate_content(
+                model=self._model, contents=contents, config=config
+            )
         )
         return AIResponse(text=response.text or "", raw_provider_response=response)
 
@@ -85,7 +104,9 @@ class GeminiProvider(AIProvider):
             response_mime_type="application/json",
             response_schema=pydantic_to_gemini_schema(schema),
         )
-        response = await self._client.aio.models.generate_content(
-            model=self._model, contents=contents, config=config
+        response = await _with_retry(
+            lambda: self._client.aio.models.generate_content(
+                model=self._model, contents=contents, config=config
+            )
         )
         return schema.model_validate_json(response.text)
