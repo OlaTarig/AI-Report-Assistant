@@ -48,10 +48,10 @@ export default function ChatPanel({ messages, onSend, onStop, loading, error }: 
             <div
               key={m.id}
               dir="auto"
-              className={`whitespace-pre-wrap rounded-lg px-4 py-2 text-sm ${
+                            className={`whitespace-pre-wrap rounded-lg px-4 py-2 text-sm ${
                 m.role === "user"
-                  ? "ml-auto max-w-[80%] bg-brand-peach text-white"
-                  : "mr-auto max-w-[80%] bg-brand-white text-gray-800 shadow-sm"
+                  ? "ml-auto max-w-[80%] bg-brand-orange-muted text-white"
+                  : "mr-auto max-w-[80%] bg-brand-white text-brand-text shadow-sm"
               }`}
             >
               {m.content}
