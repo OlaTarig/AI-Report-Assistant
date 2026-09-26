@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import ConversationList from "./components/ConversationList";
 import ChatPanel from "./components/ChatPanel";
 import FileUpload from "./components/FileUpload";
+import Mascot from "./components/Mascot";
 import * as conversationsApi from "./api/conversations";
 import * as messagesApi from "./api/messages";
 import * as filesApi from "./api/files";
@@ -143,7 +144,7 @@ export default function App() {
 
       <div className="flex flex-1 flex-col overflow-hidden">
         <header className="flex items-center justify-between gap-2 border-b bg-brand-white px-4 py-3 md:px-6">
-          <div className="flex min-w-0 items-center gap-2">
+                    <div className="flex min-w-0 items-center gap-2">
             <button
               onClick={() => setSidebarOpen(true)}
               className="rounded p-1 text-gray-500 hover:bg-brand-peach md:hidden"
@@ -151,6 +152,7 @@ export default function App() {
             >
               ☰
             </button>
+            <Mascot className="h-7 w-7 flex-shrink-0 md:h-8 md:w-8" />
             <h1 className="truncate text-base font-semibold text-gray-800 md:text-lg">
               {activeConversation?.title ?? "AI Report Assistant"}
             </h1>
