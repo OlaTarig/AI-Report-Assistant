@@ -15,13 +15,12 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [abortController, setAbortController] = useState<AbortController | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Load the sidebar list once on mount.
   useEffect(() => {
     conversationsApi.listConversations().then(setConversations);
   }, []);
 
-  // Whenever the active conversation changes, load its messages + files.
   useEffect(() => {
     if (!activeId) {
       setActiveConversation(null);
@@ -36,6 +35,12 @@ export default function App() {
     const conversation = await conversationsApi.createConversation();
     setConversations((prev) => [conversation, ...prev]);
     setActiveId(conversation.id);
+    setSidebarOpen(false); // on mobile, picking/creating a conversation should close the drawer
+  }
+
+  function handleSelect(id: string) {
+    setActiveId(id);
+    setSidebarOpen(false);
   }
 
   async function handleRename(id: string, title: string) {
@@ -52,8 +57,6 @@ export default function App() {
   async function handleSend(content: string) {
     if (!activeId) return;
 
-    // Show the user's message immediately, before the AI call even starts,
-    // so sending never looks like it silently did nothing.
     const tempId = `temp-${Date.now()}`;
     setActiveConversation((prev) =>
       prev
@@ -79,8 +82,6 @@ export default function App() {
           ? { ...prev, messages: [...prev.messages.filter((m) => m.id !== tempId), userMsg, assistantMsg] }
           : prev
       );
-      // Sending a message updates the conversation's updated_at server-side —
-      // refresh the sidebar list so it re-sorts to reflect that.
       conversationsApi.listConversations().then(setConversations);
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") {
@@ -106,7 +107,7 @@ export default function App() {
     setFiles((prev) => [...prev, uploaded]);
   }
 
-    function handleExportWord() {
+  function handleExportWord() {
     if (!activeId) return;
     window.open(`/api/conversations/${activeId}/report/export`, "_blank");
   }
@@ -117,36 +118,56 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <div className="w-64 flex-shrink-0">
+    <div className="flex h-screen bg-brand-offwhite">
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-black/30 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      <div
+        className={`fixed inset-y-0 left-0 z-40 w-64 flex-shrink-0 transform transition-transform duration-200 ease-in-out md:relative md:translate-x-0 ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
         <ConversationList
           conversations={conversations}
           activeId={activeId}
-          onSelect={setActiveId}
+          onSelect={handleSelect}
           onNew={handleNew}
           onRename={handleRename}
           onDelete={handleDelete}
         />
       </div>
 
-      <div className="flex flex-1 flex-col">
-        <header className="flex items-center justify-between border-b bg-white px-6 py-3">
-          <h1 className="text-lg font-semibold text-gray-800">
-            {activeConversation?.title ?? "AI Report Assistant"}
-          </h1>
-                    {activeId && (
-            <div className="flex gap-2">
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <header className="flex items-center justify-between gap-2 border-b bg-brand-white px-4 py-3 md:px-6">
+          <div className="flex min-w-0 items-center gap-2">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="rounded p-1 text-gray-500 hover:bg-brand-peach md:hidden"
+              aria-label="Open conversation list"
+            >
+              ☰
+            </button>
+            <h1 className="truncate text-base font-semibold text-gray-800 md:text-lg">
+              {activeConversation?.title ?? "AI Report Assistant"}
+            </h1>
+          </div>
+          {activeId && (
+            <div className="flex flex-shrink-0 gap-2">
               <button
                 onClick={handleExportWord}
-                className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
+                className="rounded-lg border border-gray-300 px-2 py-1.5 text-xs text-gray-600 hover:bg-brand-peach md:px-3 md:text-sm"
               >
-                Download Word
+                Word
               </button>
               <button
                 onClick={handleExportPdf}
-                className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
+                className="rounded-lg border border-gray-300 px-2 py-1.5 text-xs text-gray-600 hover:bg-brand-peach md:px-3 md:text-sm"
               >
-                Download PDF
+                PDF
               </button>
             </div>
           )}
@@ -166,7 +187,7 @@ export default function App() {
             <FileUpload files={files} onUpload={handleUpload} />
           </>
         ) : (
-          <div className="flex flex-1 items-center justify-center text-gray-400">
+          <div className="flex flex-1 items-center justify-center px-4 text-center text-gray-400">
             Select a report or start a new one.
           </div>
         )}

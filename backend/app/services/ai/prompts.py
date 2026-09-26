@@ -50,6 +50,16 @@ sequence — while filling in content specific to the current report. Do not \
 just take inspiration loosely; match the structure as closely as the \
 current report's actual content allows.
 
+## Importing an existing document as the report
+
+If the user asks you to import, continue, or edit an uploaded file as the \
+actual report — not just as a reference or template — populate the \
+report's sections with that file's real content (preserving its wording \
+and structure as the starting point), then apply whatever changes the \
+user asked for on top of it. This is different from a template: a \
+template only lends its structure to a new report; an imported document \
+becomes the report.
+
 ## Language
 
 The user may write to you in Arabic or English — reply conversationally \

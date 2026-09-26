@@ -34,11 +34,11 @@ export default function ConversationList({
   }
 
   return (
-    <div className="flex h-full flex-col border-r bg-white">
+    <div className="flex h-full flex-col border-r bg-brand-white">
       <div className="border-b p-3">
         <button
           onClick={onNew}
-          className="w-full rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          className="w-full rounded-lg bg-brand-orange px-3 py-2 text-sm font-medium text-white hover:bg-brand-orange-dark"
         >
           + New Report
         </button>
@@ -54,7 +54,7 @@ export default function ConversationList({
             key={c.id}
             onClick={() => editingId !== c.id && onSelect(c.id)}
             className={`group flex cursor-pointer items-center justify-between border-b px-3 py-2 text-sm ${
-              c.id === activeId ? "bg-blue-50" : "hover:bg-gray-50"
+              c.id === activeId ? "bg-brand-peach" : "hover:bg-brand-offwhite"
             }`}
           >
             {editingId === c.id ? (

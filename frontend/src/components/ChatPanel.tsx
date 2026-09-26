@@ -50,8 +50,8 @@ export default function ChatPanel({ messages, onSend, onStop, loading, error }: 
               dir="auto"
               className={`whitespace-pre-wrap rounded-lg px-4 py-2 text-sm ${
                 m.role === "user"
-                  ? "ml-auto max-w-[80%] bg-blue-600 text-white"
-                  : "mr-auto max-w-[80%] bg-white text-gray-800 shadow-sm"
+                  ? "ml-auto max-w-[80%] bg-brand-orange text-white"
+                  : "mr-auto max-w-[80%] bg-brand-white text-gray-800 shadow-sm"
               }`}
             >
               {m.content}
@@ -73,12 +73,12 @@ export default function ChatPanel({ messages, onSend, onStop, loading, error }: 
         </div>
       </main>
 
-      <footer className="border-t bg-white px-6 py-4">
+      <footer className="border-t bg-brand-white px-6 py-4">
         <div className="mx-auto flex max-w-2xl items-end gap-2">
           <textarea
             ref={textareaRef}
             rows={1}
-            className="max-h-[200px] flex-1 resize-none overflow-y-auto rounded-lg border px-3 py-2 text-sm outline-none focus:border-blue-500"
+            className="max-h-[200px] flex-1 resize-none overflow-y-auto rounded-lg border px-3 py-2 text-sm outline-none focus:border-brand-orange"
             placeholder="Type a message… (Enter to send, Shift+Enter for a new line)"
             dir="auto"
             value={input}
@@ -86,7 +86,7 @@ export default function ChatPanel({ messages, onSend, onStop, loading, error }: 
             onKeyDown={handleKeyDown}
           />
           <button
-            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+            className="rounded-lg bg-brand-orange hover:bg-brand-orange-dark px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
             onClick={handleSend}
             disabled={loading}
           >

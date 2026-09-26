@@ -41,7 +41,7 @@ export default function FileUpload({ files, onUpload }: Props) {
         {files.map((f) => (
           <span
             key={f.id}
-            className="flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-600"
+            className="flex items-center gap-1 rounded-full bg-brand-peach px-3 py-1 text-xs text-brand-orange-dark"
             title={formatSize(f.size_bytes)}
           >
             📎 {f.original_filename}
@@ -51,7 +51,7 @@ export default function FileUpload({ files, onUpload }: Props) {
         <button
           onClick={() => inputRef.current?.click()}
           disabled={uploading}
-          className="rounded-full border border-dashed border-gray-300 px-3 py-1 text-xs text-gray-500 hover:border-blue-400 hover:text-blue-500 disabled:opacity-50"
+          className="rounded-full border border-dashed border-gray-300 px-3 py-1 text-xs text-gray-500 hover:border-brand-orange hover:text-brand-orange disabled:opacity-50"
         >
           {uploading ? "Uploading…" : "+ Attach file"}
         </button>

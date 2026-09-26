@@ -112,5 +112,10 @@ async def send_message(
     )
     if has_changes:
         await report_service.apply_patch(report, turn.patch, db)
+        # Auto-name the conversation from the report's title the first time
+        # it gets a real one — mirrors how chat apps auto-title new threads.
+        if conversation.title == "New Report" and turn.patch.title and turn.patch.title != "New Report":
+            conversation.title = turn.patch.title[:255]
+            await db.commit()
 
     return [user_message, assistant_message]
