@@ -4,7 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-
+from pathlib import Path
+from sqlalchemy.orm import selectinload
+from app.config import get_settings
 from app.database import get_db
 from app.models import Conversation
 from app.schemas.conversation import (
@@ -62,10 +64,24 @@ async def rename_conversation(
 
 @router.delete("/{conversation_id}", status_code=204)
 async def delete_conversation(conversation_id: uuid.UUID, db: AsyncSession = Depends(get_db)) -> None:
-    result = await db.execute(select(Conversation).where(Conversation.id == conversation_id))
+    result = await db.execute(
+        select(Conversation)
+        .where(Conversation.id == conversation_id)
+        .options(selectinload(Conversation.files))
+    )
     conversation = result.scalar_one_or_none()
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
+    settings = get_settings()
+    upload_dir = Path(settings.upload_dir)
+    file_paths = [upload_dir / f.stored_filename for f in conversation.files]
+
     await db.delete(conversation)
     await db.commit()
+
+    # Delete the actual files from disk only after the DB delete succeeds —
+    # if the commit had failed, we don't want to have already destroyed
+    # files that a rolled-back transaction still references.
+    for path in file_paths:
+        path.unlink(missing_ok=True)
