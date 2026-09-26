@@ -108,6 +108,12 @@ export default function App() {
     setFiles((prev) => [...prev, uploaded]);
   }
 
+    async function handleRemoveFile(fileId: string) {
+    if (!activeId) return;
+    await filesApi.deleteFile(activeId, fileId);
+    setFiles((prev) => prev.filter((f) => f.id !== fileId));
+  }
+
   function handleExportWord() {
     if (!activeId) return;
     window.open(`/api/conversations/${activeId}/report/export`, "_blank");
@@ -186,7 +192,7 @@ export default function App() {
                 error={error}
               />
             </div>
-            <FileUpload files={files} onUpload={handleUpload} />
+              <FileUpload files={files} onUpload={handleUpload} onRemove={handleRemoveFile} />
           </>
         ) : (
           <div className="flex flex-1 items-center justify-center px-4 text-center text-gray-400">

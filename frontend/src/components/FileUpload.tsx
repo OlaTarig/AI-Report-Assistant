@@ -4,16 +4,15 @@ import type { UploadedFile } from "../types";
 interface Props {
   files: UploadedFile[];
   onUpload: (file: File) => Promise<void>;
+  onRemove: (fileId: string) => Promise<void>;
 }
-
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export default function FileUpload({ files, onUpload }: Props) {
-  const inputRef = useRef<HTMLInputElement>(null);
+export default function FileUpload({ files, onUpload, onRemove }: Props) {  const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,13 +37,20 @@ export default function FileUpload({ files, onUpload }: Props) {
   return (
     <div className="border-t px-6 py-2">
       <div className="mx-auto flex max-w-2xl flex-wrap items-center gap-2">
-        {files.map((f) => (
+                {files.map((f) => (
           <span
             key={f.id}
-            className="flex items-center gap-1 rounded-full bg-brand-peach px-3 py-1 text-xs text-brand-orange-dark"
+            className="flex items-center gap-1 rounded-full bg-brand-peach px-3 py-1 text-xs text-brand-text"
             title={formatSize(f.size_bytes)}
           >
             📎 {f.original_filename}
+            <button
+              onClick={() => onRemove(f.id)}
+              className="ml-1 text-brand-text/60 hover:text-red-600"
+              aria-label={`Remove ${f.original_filename}`}
+            >
+              ×
+            </button>
           </span>
         ))}
 

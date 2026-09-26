@@ -9,7 +9,7 @@ from app.database import get_db
 from app.models import Conversation, UploadedFile
 from app.schemas.file import UploadedFileOut
 from app.services.files import file_service, storage
-
+from pathlib import Path
 router = APIRouter(prefix="/conversations/{conversation_id}/files", tags=["files"])
 settings = get_settings()
 
@@ -61,3 +61,27 @@ async def list_files(conversation_id: uuid.UUID, db: AsyncSession = Depends(get_
         select(UploadedFile).where(UploadedFile.conversation_id == conversation_id)
     )
     return list(result.scalars().all())
+@router.delete("/{file_id}", status_code=204)
+async def delete_file(
+    conversation_id: uuid.UUID, file_id: uuid.UUID, db: AsyncSession = Depends(get_db)
+) -> None:
+    await _get_conversation_or_404(conversation_id, db)
+
+    result = await db.execute(
+        select(UploadedFile).where(
+            UploadedFile.id == file_id, UploadedFile.conversation_id == conversation_id
+        )
+    )
+    uploaded_file = result.scalar_one_or_none()
+    if not uploaded_file:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    file_path = Path(settings.upload_dir) / uploaded_file.stored_filename
+
+    await db.delete(uploaded_file)
+    await db.commit()
+
+    # Same ordering principle as conversation deletion: only touch disk
+    # after the DB commit succeeds, so a failed commit never leaves us
+    # having deleted a file the database still references.
+    file_path.unlink(missing_ok=True)

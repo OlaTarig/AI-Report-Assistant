@@ -22,3 +22,7 @@ export async function listFiles(conversationId: string): Promise<UploadedFile[]>
   if (!res.ok) throw new ApiError("Failed to load files", res.status);
   return res.json();
 }
+export async function deleteFile(conversationId: string, fileId: string): Promise<void> {
+  const res = await fetch(`/api/conversations/${conversationId}/files/${fileId}`, { method: "DELETE" });
+  if (!res.ok) throw new ApiError("Failed to delete file", res.status);
+}
