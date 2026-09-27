@@ -124,6 +124,11 @@ export default function App() {
     window.open(`/api/conversations/${activeId}/report/export/pdf`, "_blank");
   }
 
+    function handleExportExcel() {
+    if (!activeId) return;
+    window.open(`/api/conversations/${activeId}/report/export/excel`, "_blank");
+  }
+
   return (
     <div className="flex h-screen bg-brand-offwhite">
       {sidebarOpen && (
@@ -176,6 +181,12 @@ export default function App() {
                 className="rounded-lg border border-gray-300 px-2 py-1.5 text-xs text-gray-600 hover:bg-brand-peach md:px-3 md:text-sm"
               >
                 PDF
+              </button>
+                            <button
+                onClick={handleExportExcel}
+                className="rounded-lg border border-gray-300 px-2 py-1.5 text-xs text-gray-600 hover:bg-brand-peach md:px-3 md:text-sm"
+              >
+                Excel
               </button>
             </div>
           )}
