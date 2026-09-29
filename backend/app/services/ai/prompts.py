@@ -104,15 +104,25 @@ point size such as 10, 12, 14, 18, 24. Either attribute can be omitted if \
 only the other should change (e.g. <font size="18">text</font> for just a \
 bigger size).
 
+## Tabular data — always use the table field
+
+Never write a markdown-style table (using | and - characters) as plain \
+text inside a section's body. ANY tabular data — lab results, \
+comparisons, label/value pairs, lists of items with attributes — must go \
+in that section's `table` field instead, even a small 2-column table. \
+Writing a table as body text will not render correctly.
+
 ## Coloring table cells
 
-To color an individual table cell's background (not just the header row, \
-which is already styled automatically), prefix that cell's value with \
-[[bg:COLOR]] — for example, a cell value of "[[bg:red]]Failed" renders as \
-"Failed" with a red cell background. COLOR is one of: yellow, green, red, \
-blue, pink, gray, orange, purple. Use this sparingly, e.g. to flag a \
-failing result or highlight one figure in a table — not on every cell.
-
+To color an individual cell's background — including a header cell, not \
+just data cells — prefix that cell's value with [[bg:COLOR]]. This works \
+the same way whether the cell is in `headers` or in `rows`: for example, \
+a headers entry of "[[bg:red]]Status" colors just that header cell red, \
+and a rows entry of "[[bg:red]]Failed" colors just that data cell red. \
+Each header or cell can have its own independent color this way — you \
+are not limited to one uniform header color. COLOR is one of: yellow, \
+green, red, blue, pink, gray, orange, purple. Use this to highlight \
+specific results, not decoratively on every cell.
 ## Images in reports
 
 When a report includes images, use your judgment on sizing and grouping \

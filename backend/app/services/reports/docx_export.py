@@ -8,8 +8,10 @@ from docx.oxml.ns import qn
 from docx.shared import Inches, Pt, RGBColor
 from app.schemas.report import ReportContent
 
-ACCENT_COLOR = RGBColor(0x1F, 0x4E, 0x79)  # dark blue, used for title + headings
-HEADER_FILL = "1F4E79"  # same color, hex without '#', for table header shading
+ACCENT_COLOR = RGBColor(0x1F, 0x4E, 0x79)
+HEADER_FILL = "1F4E79"
+HEADER_TEXT_COLOR = RGBColor(0xFF, 0xFF, 0xFF)
+CUSTOM_HEADER_TEXT_COLOR = RGBColor(0x3A, 0x2E, 0x2A)  # dark text for custom (light pastel) header colors
 
 _INLINE_PATTERN = re.compile(
     r'(\*\*.+?\*\*|\*.+?\*|<mark color="\w+">.*?</mark>|<color name="\w+">.*?</color>'
@@ -17,12 +19,7 @@ _INLINE_PATTERN = re.compile(
     re.DOTALL,
 )
 _FONT_TAG_PATTERN = re.compile(r'<font(?: name="(\w+)")?(?: size="(\d+)")?>(.*?)</font>', re.DOTALL)
-
-_FONT_NAMES = {
-    "default": "Calibri",
-    "serif": "Georgia",
-    "mono": "Consolas",
-}
+_FONT_NAMES = {"default": "Calibri", "serif": "Georgia", "mono": "Consolas"}
 _MARK_PATTERN = re.compile(r'<mark color="(\w+)">(.*?)</mark>', re.DOTALL)
 _COLOR_PATTERN = re.compile(r'<color name="(\w+)">(.*?)</color>', re.DOTALL)
 
@@ -34,10 +31,6 @@ _HIGHLIGHT_COLORS = {
     "pink": WD_COLOR_INDEX.PINK,
     "gray": WD_COLOR_INDEX.GRAY_25,
 }
-
-# Font colors are arbitrary RGB, unlike highlights which are limited to
-# Word's fixed highlighter palette — so this map isn't constrained to the
-# same color set as _HIGHLIGHT_COLORS.
 _FONT_COLORS = {
     "yellow": RGBColor(0xC9, 0xA2, 0x00),
     "green": RGBColor(0x1E, 0x7B, 0x34),
@@ -49,9 +42,6 @@ _FONT_COLORS = {
     "purple": RGBColor(0x6A, 0x1B, 0x9A),
     "black": RGBColor(0x00, 0x00, 0x00),
 }
-
-# Per-cell background prefix, e.g. "[[bg:red]]Failed" — only used inside
-# table cells (see _add_table), not in ordinary paragraph text.
 _CELL_BG_PATTERN = re.compile(r"^\[\[bg:(\w+)\]\](.*)", re.DOTALL)
 _CELL_BG_HEX = {
     "yellow": "FFF3B0",
@@ -64,9 +54,31 @@ _CELL_BG_HEX = {
     "purple": "E3D0F0",
 }
 
+_MD_SEPARATOR_ROW = re.compile(r"^\|[\s:\-|]+\|$")
+
+
+def _parse_markdown_table(text: str) -> tuple[list[str], list[list[str]]] | None:
+    """Safety net: if the AI writes a markdown pipe-table directly in body
+    text instead of using the structured `table` field, detect it here and
+    render it as a real table anyway, rather than showing literal
+    pipes/dashes to the user."""
+    lines = [ln.strip() for ln in text.strip().split("\n") if ln.strip()]
+    if len(lines) < 2:
+        return None
+    if not all(ln.startswith("|") and ln.endswith("|") for ln in lines):
+        return None
+    if not _MD_SEPARATOR_ROW.match(lines[1]):
+        return None
+
+    def split_row(ln: str) -> list[str]:
+        return [c.strip() for c in ln.strip("|").split("|")]
+
+    headers = split_row(lines[0])
+    rows = [split_row(ln) for ln in lines[2:]]
+    return headers, rows
+
 
 def _add_page_number(section) -> None:
-    """Insert a live page-number field into the section's footer."""
     footer = section.footer
     paragraph = footer.paragraphs[0] if footer.paragraphs else footer.add_paragraph()
     paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -86,19 +98,12 @@ def _add_page_number(section) -> None:
 
 
 def _shade_cell(cell, hex_color: str) -> None:
-    """python-docx has no high-level API for cell shading, so we build the
-    raw <w:shd> XML element and attach it to the cell's properties."""
     shading = OxmlElement("w:shd")
     shading.set(qn("w:fill"), hex_color)
     cell._tc.get_or_add_tcPr().append(shading)
 
 
 def _render_marks_into_paragraph(paragraph, text: str) -> None:
-    """Parses **bold**, *italic*, <mark>, <color>, and <font> spans in
-    `text` and adds each piece as its own run with the right formatting
-    applied. Works on any paragraph — a body paragraph, a table cell's
-    paragraph, or a heading — since all of these are the same
-    python-docx type."""
     pos = 0
     for match in _INLINE_PATTERN.finditer(text):
         if match.start() > pos:
@@ -146,10 +151,22 @@ def _add_table(doc: Document, headers: list[str], rows: list[list[str]]) -> None
     header_cells = table.rows[0].cells
     for i, header_text in enumerate(headers):
         para = header_cells[i].paragraphs[0]
-        _render_marks_into_paragraph(para, header_text)
-        _shade_cell(header_cells[i], HEADER_FILL)
+        bg_match = _CELL_BG_PATTERN.match(header_text)
+        if bg_match:
+            # A custom header color was specified — use it, and switch to
+            # dark text since our custom palette is all light pastels
+            # (white text on a light background is unreadable).
+            color_name, actual_text = bg_match.group(1), bg_match.group(2)
+            _render_marks_into_paragraph(para, actual_text)
+            _shade_cell(header_cells[i], _CELL_BG_HEX.get(color_name.lower(), HEADER_FILL))
+            text_color = CUSTOM_HEADER_TEXT_COLOR
+        else:
+            _render_marks_into_paragraph(para, header_text)
+            _shade_cell(header_cells[i], HEADER_FILL)
+            text_color = HEADER_TEXT_COLOR
+
         for run in para.runs:
-            run.font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
+            run.font.color.rgb = text_color
             run.font.bold = True
 
     for row_data in rows:
@@ -167,9 +184,6 @@ def _add_table(doc: Document, headers: list[str], rows: list[list[str]]) -> None
 
 
 def _add_images(doc: Document, image_paths: list[Path]) -> None:
-    """Lay out a section's images to avoid wasting pages: a single image
-    gets a moderate width; multiple images share rows via a borderless
-    table, with column count adapting to how many there are."""
     if not image_paths:
         return
 
@@ -216,8 +230,14 @@ def build_docx(content: ReportContent, image_paths_by_id: dict[str, Path], outpu
                 run.font.color.rgb = ACCENT_COLOR
 
         for para_text in sec.body.split("\n\n"):
-            if para_text.strip():
-                _add_paragraph_with_marks(doc, para_text.strip())
+            block = para_text.strip()
+            if not block:
+                continue
+            parsed = _parse_markdown_table(block)
+            if parsed:
+                _add_table(doc, parsed[0], parsed[1])
+            else:
+                _add_paragraph_with_marks(doc, block)
 
         if sec.table:
             _add_table(doc, sec.table.headers, sec.table.rows)
