@@ -11,8 +11,25 @@ ACCENT_COLOR = "1F4E79"
 HEADER_FILL = PatternFill(start_color="FFE8D6", end_color="FFE8D6", fill_type="solid")
 
 _TAG_PATTERN = re.compile(
-    r'\*\*(.+?)\*\*|\*(.+?)\*|<mark color="\w+">(.*?)</mark>|<color name="\w+">(.*?)</color>', re.DOTALL
+    r'\*\*(.+?)\*\*|\*(.+?)\*|<mark color="\w+">(.*?)</mark>|<color name="\w+">(.*?)</color>'
+    r'|<font(?: name="\w+")?(?: size="\d+")?>(.*?)</font>',
+    re.DOTALL,
 )
+
+_CELL_BG_PATTERN = re.compile(r"^\[\[bg:(\w+)\]\](.*)", re.DOTALL)
+_CELL_BG_FILLS = {
+    name: PatternFill(start_color=hexcode, end_color=hexcode, fill_type="solid")
+    for name, hexcode in {
+        "yellow": "FFF3B0",
+        "green": "C6E8C6",
+        "red": "F4C7C3",
+        "blue": "C9DDF2",
+        "pink": "F5C6DE",
+        "gray": "E0E0E0",
+        "orange": "FFDAB3",
+        "purple": "E3D0F0",
+    }.items()
+}
 
 
 def _strip_formatting(text: str) -> str:
@@ -61,7 +78,13 @@ def build_xlsx(content: ReportContent, image_paths_by_id: dict[str, Path], outpu
             row += 1
             for data_row in sec.table.rows:
                 for col_idx, value in enumerate(data_row, start=1):
-                    ws.cell(row=row, column=col_idx, value=value)
+                    bg_match = _CELL_BG_PATTERN.match(value)
+                    if bg_match:
+                        color_name, actual_value = bg_match.group(1), bg_match.group(2)
+                        cell = ws.cell(row=row, column=col_idx, value=_strip_formatting(actual_value))
+                        cell.fill = _CELL_BG_FILLS.get(color_name.lower(), cell.fill)
+                    else:
+                        ws.cell(row=row, column=col_idx, value=_strip_formatting(value))
                 row += 1
 
         for fid in sec.image_file_ids:

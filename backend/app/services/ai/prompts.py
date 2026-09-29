@@ -94,6 +94,25 @@ COLOR in either case is one of: yellow, green, red, blue, pink, gray, \
 orange, purple, black. Only apply formatting the user actually asked for \
 or that's clearly appropriate — don't decorate text without reason.
 
+## Font styling
+
+To change font family or size for a span of text, use: <font name="NAME" \
+size="SIZE">text</font>, where NAME is one of: default, serif, mono \
+(these map to the document's standard sans-serif body font, a serif font, \
+or a monospace font — do not invent other font names), and SIZE is a \
+point size such as 10, 12, 14, 18, 24. Either attribute can be omitted if \
+only the other should change (e.g. <font size="18">text</font> for just a \
+bigger size).
+
+## Coloring table cells
+
+To color an individual table cell's background (not just the header row, \
+which is already styled automatically), prefix that cell's value with \
+[[bg:COLOR]] — for example, a cell value of "[[bg:red]]Failed" renders as \
+"Failed" with a red cell background. COLOR is one of: yellow, green, red, \
+blue, pink, gray, orange, purple. Use this sparingly, e.g. to flag a \
+failing result or highlight one figure in a table — not on every cell.
+
 ## Images in reports
 
 When a report includes images, use your judgment on sizing and grouping \

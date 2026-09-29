@@ -6,15 +6,23 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_COLOR_INDEX
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Inches, Pt, RGBColor
-
 from app.schemas.report import ReportContent
 
 ACCENT_COLOR = RGBColor(0x1F, 0x4E, 0x79)  # dark blue, used for title + headings
 HEADER_FILL = "1F4E79"  # same color, hex without '#', for table header shading
 
 _INLINE_PATTERN = re.compile(
-    r'(\*\*.+?\*\*|\*.+?\*|<mark color="\w+">.*?</mark>|<color name="\w+">.*?</color>)', re.DOTALL
+    r'(\*\*.+?\*\*|\*.+?\*|<mark color="\w+">.*?</mark>|<color name="\w+">.*?</color>'
+    r'|<font(?: name="\w+")?(?: size="\d+")?>.*?</font>)',
+    re.DOTALL,
 )
+_FONT_TAG_PATTERN = re.compile(r'<font(?: name="(\w+)")?(?: size="(\d+)")?>(.*?)</font>', re.DOTALL)
+
+_FONT_NAMES = {
+    "default": "Calibri",
+    "serif": "Georgia",
+    "mono": "Consolas",
+}
 _MARK_PATTERN = re.compile(r'<mark color="(\w+)">(.*?)</mark>', re.DOTALL)
 _COLOR_PATTERN = re.compile(r'<color name="(\w+)">(.*?)</color>', re.DOTALL)
 
@@ -40,6 +48,20 @@ _FONT_COLORS = {
     "orange": RGBColor(0xD9, 0x73, 0x0D),
     "purple": RGBColor(0x6A, 0x1B, 0x9A),
     "black": RGBColor(0x00, 0x00, 0x00),
+}
+
+# Per-cell background prefix, e.g. "[[bg:red]]Failed" — only used inside
+# table cells (see _add_table), not in ordinary paragraph text.
+_CELL_BG_PATTERN = re.compile(r"^\[\[bg:(\w+)\]\](.*)", re.DOTALL)
+_CELL_BG_HEX = {
+    "yellow": "FFF3B0",
+    "green": "C6E8C6",
+    "red": "F4C7C3",
+    "blue": "C9DDF2",
+    "pink": "F5C6DE",
+    "gray": "E0E0E0",
+    "orange": "FFDAB3",
+    "purple": "E3D0F0",
 }
 
 
@@ -72,10 +94,11 @@ def _shade_cell(cell, hex_color: str) -> None:
 
 
 def _render_marks_into_paragraph(paragraph, text: str) -> None:
-    """Parses **bold**, *italic*, <mark>, and <color> spans in `text` and
-    adds each piece as its own run with the right formatting applied.
-    Works on any paragraph — a body paragraph, a table cell's paragraph,
-    or a heading — since all of these are the same python-docx type."""
+    """Parses **bold**, *italic*, <mark>, <color>, and <font> spans in
+    `text` and adds each piece as its own run with the right formatting
+    applied. Works on any paragraph — a body paragraph, a table cell's
+    paragraph, or a heading — since all of these are the same
+    python-docx type."""
     pos = 0
     for match in _INLINE_PATTERN.finditer(text):
         if match.start() > pos:
@@ -92,6 +115,14 @@ def _render_marks_into_paragraph(paragraph, text: str) -> None:
             m = _COLOR_PATTERN.match(token)
             run = paragraph.add_run(m.group(2))
             run.font.color.rgb = _FONT_COLORS.get(m.group(1).lower(), RGBColor(0x00, 0x00, 0x00))
+        elif token.startswith("<font"):
+            m = _FONT_TAG_PATTERN.match(token)
+            font_key, size_str, inner_text = m.group(1), m.group(2), m.group(3)
+            run = paragraph.add_run(inner_text)
+            if font_key:
+                run.font.name = _FONT_NAMES.get(font_key.lower(), _FONT_NAMES["default"])
+            if size_str:
+                run.font.size = Pt(int(size_str))
         else:
             paragraph.add_run(token[1:-1]).italic = True
 
@@ -124,9 +155,17 @@ def _add_table(doc: Document, headers: list[str], rows: list[list[str]]) -> None
     for row_data in rows:
         row_cells = table.add_row().cells
         for i, value in enumerate(row_data):
-            _render_marks_into_paragraph(row_cells[i].paragraphs[0], value)
+            bg_match = _CELL_BG_PATTERN.match(value)
+            if bg_match:
+                color_name, actual_value = bg_match.group(1), bg_match.group(2)
+                _render_marks_into_paragraph(row_cells[i].paragraphs[0], actual_value)
+                _shade_cell(row_cells[i], _CELL_BG_HEX.get(color_name.lower(), "FFFFFF"))
+            else:
+                _render_marks_into_paragraph(row_cells[i].paragraphs[0], value)
 
     doc.add_paragraph()
+
+
 def _add_images(doc: Document, image_paths: list[Path]) -> None:
     """Lay out a section's images to avoid wasting pages: a single image
     gets a moderate width; multiple images share rows via a borderless
