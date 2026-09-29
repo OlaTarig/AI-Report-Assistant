@@ -11,15 +11,26 @@ from app.schemas.report import ReportContent
 ACCENT_COLOR = RGBColor(0x1F, 0x4E, 0x79)
 HEADER_FILL = "1F4E79"
 HEADER_TEXT_COLOR = RGBColor(0xFF, 0xFF, 0xFF)
-CUSTOM_HEADER_TEXT_COLOR = RGBColor(0x3A, 0x2E, 0x2A)  # dark text for custom (light pastel) header colors
+CUSTOM_HEADER_TEXT_COLOR = RGBColor(0x3A, 0x2E, 0x2A)
+DEFAULT_BODY_SIZE = Pt(12)
 
 _INLINE_PATTERN = re.compile(
-    r'(\*\*.+?\*\*|\*.+?\*|<mark color="\w+">.*?</mark>|<color name="\w+">.*?</color>'
-    r'|<font(?: name="\w+")?(?: size="\d+")?>.*?</font>)',
+    r'(\*\*\*.+?\*\*\*|\*\*.+?\*\*|\*.+?\*|<mark color="\w+">.*?</mark>|<color name="\w+">.*?</color>'
+    r'|<font(?: name="[^"]+")?(?: size="\d+")?(?: color="\w+")?>.*?</font>)',
     re.DOTALL,
 )
-_FONT_TAG_PATTERN = re.compile(r'<font(?: name="(\w+)")?(?: size="(\d+)")?>(.*?)</font>', re.DOTALL)
-_FONT_NAMES = {"default": "Calibri", "serif": "Georgia", "mono": "Consolas"}
+_FONT_TAG_PATTERN = re.compile(
+    r'<font(?: name="([^"]+)")?(?: size="(\d+)")?(?: color="(\w+)")?>(.*?)</font>', re.DOTALL
+)
+# Common short names the AI might still use, mapped to their real Word font
+# name. Anything not in this map is passed through as-is — so a real font
+# name like "Times New Roman" or "Arial" works directly, unrecognized.
+_FONT_NAME_ALIASES = {
+    "default": "Calibri",
+    "serif": "Georgia",
+    "mono": "Consolas",
+    "times": "Times New Roman",
+}
 _MARK_PATTERN = re.compile(r'<mark color="(\w+)">(.*?)</mark>', re.DOTALL)
 _COLOR_PATTERN = re.compile(r'<color name="(\w+)">(.*?)</color>', re.DOTALL)
 
@@ -53,15 +64,10 @@ _CELL_BG_HEX = {
     "orange": "FFDAB3",
     "purple": "E3D0F0",
 }
-
 _MD_SEPARATOR_ROW = re.compile(r"^\|[\s:\-|]+\|$")
 
 
 def _parse_markdown_table(text: str) -> tuple[list[str], list[list[str]]] | None:
-    """Safety net: if the AI writes a markdown pipe-table directly in body
-    text instead of using the structured `table` field, detect it here and
-    render it as a real table anyway, rather than showing literal
-    pipes/dashes to the user."""
     lines = [ln.strip() for ln in text.strip().split("\n") if ln.strip()]
     if len(lines) < 2:
         return None
@@ -107,34 +113,45 @@ def _render_marks_into_paragraph(paragraph, text: str) -> None:
     pos = 0
     for match in _INLINE_PATTERN.finditer(text):
         if match.start() > pos:
-            paragraph.add_run(text[pos : match.start()])
+            paragraph.add_run(text[pos : match.start()]).font.size = DEFAULT_BODY_SIZE
 
         token = match.group(0)
-        if token.startswith("**"):
-            paragraph.add_run(token[2:-2]).bold = True
+        if token.startswith("***"):
+            run = paragraph.add_run(token[3:-3])
+            run.bold = True
+            run.italic = True
+            run.font.size = DEFAULT_BODY_SIZE
+        elif token.startswith("**"):
+            run = paragraph.add_run(token[2:-2])
+            run.bold = True
+            run.font.size = DEFAULT_BODY_SIZE
         elif token.startswith("<mark"):
             m = _MARK_PATTERN.match(token)
             run = paragraph.add_run(m.group(2))
             run.font.highlight_color = _HIGHLIGHT_COLORS.get(m.group(1).lower(), WD_COLOR_INDEX.YELLOW)
+            run.font.size = DEFAULT_BODY_SIZE
         elif token.startswith("<color"):
             m = _COLOR_PATTERN.match(token)
             run = paragraph.add_run(m.group(2))
             run.font.color.rgb = _FONT_COLORS.get(m.group(1).lower(), RGBColor(0x00, 0x00, 0x00))
+            run.font.size = DEFAULT_BODY_SIZE
         elif token.startswith("<font"):
             m = _FONT_TAG_PATTERN.match(token)
-            font_key, size_str, inner_text = m.group(1), m.group(2), m.group(3)
+            font_key, size_str, color_key, inner_text = m.group(1), m.group(2), m.group(3), m.group(4)
             run = paragraph.add_run(inner_text)
-            if font_key:
-                run.font.name = _FONT_NAMES.get(font_key.lower(), _FONT_NAMES["default"])
-            if size_str:
-                run.font.size = Pt(int(size_str))
-        else:
-            paragraph.add_run(token[1:-1]).italic = True
+            run.font.name = _FONT_NAME_ALIASES.get((font_key or "").lower(), font_key) if font_key else None
+            run.font.size = Pt(int(size_str)) if size_str else DEFAULT_BODY_SIZE
+            if color_key:
+                run.font.color.rgb = _FONT_COLORS.get(color_key.lower(), RGBColor(0x00, 0x00, 0x00))
+        else:  # single-asterisk italic
+            run = paragraph.add_run(token[1:-1])
+            run.italic = True
+            run.font.size = DEFAULT_BODY_SIZE
 
         pos = match.end()
 
     if pos < len(text):
-        paragraph.add_run(text[pos:])
+        paragraph.add_run(text[pos:]).font.size = DEFAULT_BODY_SIZE
 
 
 def _add_paragraph_with_marks(doc: Document, text: str):
@@ -147,15 +164,13 @@ def _add_paragraph_with_marks(doc: Document, text: str):
 def _add_table(doc: Document, headers: list[str], rows: list[list[str]]) -> None:
     table = doc.add_table(rows=1, cols=len(headers))
     table.style = "Table Grid"
+    table.autofit = True  # size columns to their content instead of stretching full page width
 
     header_cells = table.rows[0].cells
     for i, header_text in enumerate(headers):
         para = header_cells[i].paragraphs[0]
         bg_match = _CELL_BG_PATTERN.match(header_text)
         if bg_match:
-            # A custom header color was specified — use it, and switch to
-            # dark text since our custom palette is all light pastels
-            # (white text on a light background is unreadable).
             color_name, actual_text = bg_match.group(1), bg_match.group(2)
             _render_marks_into_paragraph(para, actual_text)
             _shade_cell(header_cells[i], _CELL_BG_HEX.get(color_name.lower(), HEADER_FILL))
@@ -209,6 +224,7 @@ def _add_images(doc: Document, image_paths: list[Path]) -> None:
 
 def build_docx(content: ReportContent, image_paths_by_id: dict[str, Path], output_path: Path) -> Path:
     doc = Document()
+    doc.styles["Normal"].font.size = DEFAULT_BODY_SIZE  # sets the document-wide default body size
 
     section = doc.sections[0]
     section.left_margin = Inches(1)

@@ -11,8 +11,8 @@ ACCENT_COLOR = "1F4E79"
 HEADER_FILL = PatternFill(start_color="FFE8D6", end_color="FFE8D6", fill_type="solid")
 
 _TAG_PATTERN = re.compile(
-    r'\*\*(.+?)\*\*|\*(.+?)\*|<mark color="\w+">(.*?)</mark>|<color name="\w+">(.*?)</color>'
-    r'|<font(?: name="\w+")?(?: size="\d+")?>(.*?)</font>',
+    r'\*\*\*(.+?)\*\*\*|\*\*(.+?)\*\*|\*(.+?)\*|<mark color="\w+">(.*?)</mark>|<color name="\w+">(.*?)</color>'
+    r'|<font(?: name="[^"]+")?(?: size="\d+")?(?: color="\w+")?>(.*?)</font>',
     re.DOTALL,
 )
 
@@ -35,9 +35,9 @@ _MD_SEPARATOR_ROW = re.compile(r"^\|[\s:\-|]+\|$")
 
 
 def _parse_markdown_table(text: str) -> tuple[list[str], list[list[str]]] | None:
-    """Same safety net as docx_export: catches a markdown pipe-table
-    written in body text and renders it as real spreadsheet rows instead
-    of a wall of pipe characters in one cell."""
+    """Safety net: catches a markdown pipe-table written in body text and
+    renders it as real spreadsheet rows instead of a wall of pipe
+    characters in one cell."""
     lines = [ln.strip() for ln in text.strip().split("\n") if ln.strip()]
     if len(lines) < 2:
         return None
@@ -55,6 +55,10 @@ def _parse_markdown_table(text: str) -> tuple[list[str], list[list[str]]] | None
 
 
 def _strip_formatting(text: str) -> str:
+    """Excel cells don't support per-character rich formatting the way
+    Word runs do, so rather than show the literal markdown/tag markup, we
+    strip it and keep the plain text for the spreadsheet export."""
+
     def _replace(m: re.Match) -> str:
         return next(g for g in m.groups() if g is not None)
 
@@ -97,9 +101,9 @@ def build_xlsx(content: ReportContent, image_paths_by_id: dict[str, Path], outpu
     ws = wb.active
     ws.title = "Report"
 
-    ws.column_dimensions["A"].width = 60
+    ws.column_dimensions["A"].width = 40
     for col in "BCDEFG":
-        ws.column_dimensions[col].width = 20
+        ws.column_dimensions[col].width = 15
 
     row = 1
     title_cell = ws.cell(row=row, column=1, value=content.title)

@@ -96,13 +96,21 @@ or that's clearly appropriate — don't decorate text without reason.
 
 ## Font styling
 
-To change font family or size for a span of text, use: <font name="NAME" \
-size="SIZE">text</font>, where NAME is one of: default, serif, mono \
-(these map to the document's standard sans-serif body font, a serif font, \
-or a monospace font — do not invent other font names), and SIZE is a \
-point size such as 10, 12, 14, 18, 24. Either attribute can be omitted if \
-only the other should change (e.g. <font size="18">text</font> for just a \
-bigger size).
+To change font, size, or color for a span of text, use: <font \
+name="NAME" size="SIZE" color="COLOR">text</font> — any combination of \
+the three attributes, omit whichever aren't changing. NAME can be a real \
+font name such as "Times New Roman", "Arial", "Georgia", "Courier New", \
+or "Calibri" — use actual font names the user asks for directly, do not \
+restrict yourself to a fixed list. SIZE is a point size (10, 12, 14, 18, \
+24, etc.) COLOR is one of: yellow, green, red, blue, pink, gray, orange, \
+purple, black. Do not nest a separate <color> tag inside <font> — put \
+color as an attribute of the same tag instead.
+
+Body text defaults to 12pt — only use <font size="..."> when the user \
+asks for something different from the default.
+
+For bold+italic together, use ***triple asterisks***: ***text***. Plain \
+**double asterisks** is bold only, single *asterisks* is italic only.
 
 ## Tabular data — always use the table field
 
