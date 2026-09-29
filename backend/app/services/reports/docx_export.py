@@ -14,17 +14,17 @@ HEADER_TEXT_COLOR = RGBColor(0xFF, 0xFF, 0xFF)
 CUSTOM_HEADER_TEXT_COLOR = RGBColor(0x3A, 0x2E, 0x2A)
 DEFAULT_BODY_SIZE = Pt(12)
 
+# <font> now matches ANY combination/order of name/size/color attributes —
+# previously required a fixed order (name, then size, then color), which
+# silently failed to match whenever the AI wrote them in a different order.
 _INLINE_PATTERN = re.compile(
     r'(\*\*\*.+?\*\*\*|\*\*.+?\*\*|\*.+?\*|<mark color="\w+">.*?</mark>|<color name="\w+">.*?</color>'
-    r'|<font(?: name="[^"]+")?(?: size="\d+")?(?: color="\w+")?>.*?</font>)',
+    r'|<font(?:\s+\w+="[^"]*")*\s*>.*?</font>)',
     re.DOTALL,
 )
-_FONT_TAG_PATTERN = re.compile(
-    r'<font(?: name="([^"]+)")?(?: size="(\d+)")?(?: color="(\w+)")?>(.*?)</font>', re.DOTALL
-)
-# Common short names the AI might still use, mapped to their real Word font
-# name. Anything not in this map is passed through as-is — so a real font
-# name like "Times New Roman" or "Arial" works directly, unrecognized.
+_FONT_TAG_PATTERN = re.compile(r'<font((?:\s+\w+="[^"]*")*)\s*>(.*?)</font>', re.DOTALL)
+_ATTR_PATTERN = re.compile(r'(\w+)="([^"]*)"')
+
 _FONT_NAME_ALIASES = {
     "default": "Calibri",
     "serif": "Georgia",
@@ -137,13 +137,30 @@ def _render_marks_into_paragraph(paragraph, text: str) -> None:
             run.font.size = DEFAULT_BODY_SIZE
         elif token.startswith("<font"):
             m = _FONT_TAG_PATTERN.match(token)
-            font_key, size_str, color_key, inner_text = m.group(1), m.group(2), m.group(3), m.group(4)
-            run = paragraph.add_run(inner_text)
-            run.font.name = _FONT_NAME_ALIASES.get((font_key or "").lower(), font_key) if font_key else None
-            run.font.size = Pt(int(size_str)) if size_str else DEFAULT_BODY_SIZE
-            if color_key:
-                run.font.color.rgb = _FONT_COLORS.get(color_key.lower(), RGBColor(0x00, 0x00, 0x00))
-        else:  # single-asterisk italic
+            attrs = dict(_ATTR_PATTERN.findall(m.group(1)))
+            inner_text = m.group(2)
+            font_key = attrs.get("name")
+            size_str = attrs.get("size")
+            color_key = attrs.get("color")
+
+            # Recurse in case the AI nested another tag (e.g. <color>)
+            # inside <font> despite being told not to — this way nested
+            # content still renders correctly instead of showing as raw
+            # literal tag text.
+            start_index = len(paragraph.runs)
+            _render_marks_into_paragraph(paragraph, inner_text)
+            new_runs = paragraph.runs[start_index:]
+            if not new_runs:
+                continue
+            for run in new_runs:
+                if font_key:
+                    run.font.name = _FONT_NAME_ALIASES.get(font_key.lower(), font_key)
+                run.font.size = Pt(int(size_str)) if size_str else DEFAULT_BODY_SIZE
+                # Only apply <font>'s own color if this run didn't already
+                # get one from a nested <color>/<mark> tag during recursion.
+                if color_key and run.font.color.rgb is None:
+                    run.font.color.rgb = _FONT_COLORS.get(color_key.lower(), RGBColor(0x00, 0x00, 0x00))
+        else:
             run = paragraph.add_run(token[1:-1])
             run.italic = True
             run.font.size = DEFAULT_BODY_SIZE
@@ -164,7 +181,7 @@ def _add_paragraph_with_marks(doc: Document, text: str):
 def _add_table(doc: Document, headers: list[str], rows: list[list[str]]) -> None:
     table = doc.add_table(rows=1, cols=len(headers))
     table.style = "Table Grid"
-    table.autofit = True  # size columns to their content instead of stretching full page width
+    table.autofit = True
 
     header_cells = table.rows[0].cells
     for i, header_text in enumerate(headers):
@@ -224,7 +241,7 @@ def _add_images(doc: Document, image_paths: list[Path]) -> None:
 
 def build_docx(content: ReportContent, image_paths_by_id: dict[str, Path], output_path: Path) -> Path:
     doc = Document()
-    doc.styles["Normal"].font.size = DEFAULT_BODY_SIZE  # sets the document-wide default body size
+    doc.styles["Normal"].font.size = DEFAULT_BODY_SIZE
 
     section = doc.sections[0]
     section.left_margin = Inches(1)
