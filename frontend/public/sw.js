@@ -13,6 +13,14 @@ self.addEventListener("fetch", (event) => {
 async function handleShareTarget(event) {
   const formData = await event.request.formData();
   const files = formData.getAll("shared_files");
+  await storeFilesToCache(files);
+
+  // Redirect to GET /share-target so the app handles UI
+  return Response.redirect("/share-target", 303);
+}
+
+// Helper to store File objects in Cache API for UI recovery
+async function storeFilesToCache(files) {
   const cache = await caches.open(SHARE_CACHE);
 
   await cache.put("share-meta", new Response(JSON.stringify({ count: files.length })));
@@ -27,9 +35,4 @@ async function handleShareTarget(event) {
       })
     );
   }
-
-  // Redirect to a normal page load — the service worker's job (grabbing
-  // the files out of the POST) is done; the actual upload happens from
-  // regular page JavaScript next, via the existing upload API.
-  return Response.redirect("/share-target", 303);
 }
