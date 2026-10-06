@@ -7,7 +7,7 @@ import * as conversationsApi from "./api/conversations";
 import * as messagesApi from "./api/messages";
 import * as filesApi from "./api/files";
 import type { Conversation, ConversationDetail, UploadedFile } from "./types";
-
+import ShareTargetHandler from "./components/ShareTargetHandler";
 export default function App() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -17,7 +17,9 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [abortController, setAbortController] = useState<AbortController | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-
+  if (window.location.pathname === "/share-target") {
+    return <ShareTargetHandler />;
+  }
   useEffect(() => {
     conversationsApi.listConversations().then(setConversations);
   }, []);
