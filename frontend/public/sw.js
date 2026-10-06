@@ -6,23 +6,27 @@ self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim(
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   if (event.request.method === "POST" && url.pathname === "/share-target") {
-    // Intercept POST request and wait until files are stored in Cache API
     event.respondWith(
       (async () => {
+        const cache = await caches.open(SHARE_CACHE);
+        const debugLog = {
+          receivedAt: new Date().toISOString(),
+          contentType: event.request.headers.get("content-type") || "(none)",
+        };
+
         try {
           const formData = await event.request.formData();
+          const fieldNames = [...formData.keys()];
           const files = [];
 
-          // Extract ALL files regardless of form parameter name
           for (const value of formData.values()) {
-            if (value instanceof File) {
-              files.push(value);
-            }
+            if (value instanceof File) files.push(value);
           }
 
-          const cache = await caches.open(SHARE_CACHE);
+          debugLog.fieldNames = fieldNames;
+          debugLog.fileCount = files.length;
+          debugLog.fileNames = files.map((f) => f.name);
 
-          // Store metadata
           await cache.put(
             "share-meta",
             new Response(JSON.stringify({ count: files.length }), {
@@ -30,7 +34,6 @@ self.addEventListener("fetch", (event) => {
             })
           );
 
-          // Store file payloads
           for (let i = 0; i < files.length; i++) {
             await cache.put(
               `share-file-${i}`,
@@ -43,10 +46,13 @@ self.addEventListener("fetch", (event) => {
             );
           }
         } catch (err) {
-          console.error("Service worker failed to store shared files:", err);
+          debugLog.error = String(err);
         }
 
-        // Redirect AFTER cache writes are complete
+        // Always write the debug log, success or failure, so the page can
+        // show exactly what the service worker saw on this specific share.
+        await cache.put("share-debug", new Response(JSON.stringify(debugLog)));
+
         return Response.redirect("/share-target", 303);
       })()
     );

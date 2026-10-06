@@ -5,7 +5,14 @@ import type { Conversation } from "../types";
 
 const SHARE_CACHE = "share-target-cache";
 
-async function readSharedFiles(retries = 3): Promise<File[]> {
+async function readDebugLog(): Promise<Record<string, unknown> | null> {
+  const cache = await caches.open(SHARE_CACHE);
+  const response = await cache.match("share-debug");
+  if (!response) return null;
+  return response.json();
+}
+
+async function readSharedFiles(retries = 5): Promise<File[]> {
   for (let attempt = 0; attempt < retries; attempt++) {
     const cache = await caches.open(SHARE_CACHE);
     const metaResponse = await cache.match("share-meta");
@@ -22,16 +29,13 @@ async function readSharedFiles(retries = 3): Promise<File[]> {
         files.push(new File([blob], name, { type: blob.type }));
       }
 
-      // Cleanup cache after reading
       await cache.delete("share-meta");
-      for (let i = 0; i < count; i++) {
-        await cache.delete(`share-file-${i}`);
-      }
+      await cache.delete("share-debug");
+      for (let i = 0; i < count; i++) await cache.delete(`share-file-${i}`);
 
       return files;
     }
 
-    // Wait 200ms before retrying if cache wasn't ready immediately
     await new Promise((res) => setTimeout(res, 200));
   }
 
@@ -41,6 +45,7 @@ async function readSharedFiles(retries = 3): Promise<File[]> {
 export default function ShareTargetHandler() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [sharedFiles, setSharedFiles] = useState<File[]>([]);
+  const [debugLog, setDebugLog] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,15 +53,16 @@ export default function ShareTargetHandler() {
   useEffect(() => {
     async function loadData() {
       setLoading(true);
+      const log = await readDebugLog();
       const [convList, files] = await Promise.all([
         conversationsApi.listConversations(),
         readSharedFiles(),
       ]);
       setConversations(convList);
       setSharedFiles(files);
+      setDebugLog(log);
       setLoading(false);
     }
-
     loadData();
   }, []);
 
@@ -93,8 +99,18 @@ export default function ShareTargetHandler() {
 
   if (sharedFiles.length === 0 && !uploading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-brand-offwhite text-gray-500">
-        No shared file found.
+      <div className="flex h-screen flex-col items-center justify-center gap-3 bg-brand-offwhite px-6 text-center">
+        <p className="text-gray-500">No shared file found.</p>
+        {debugLog ? (
+          <pre className="max-w-full overflow-x-auto rounded bg-brand-white p-3 text-left text-xs text-gray-600">
+            {JSON.stringify(debugLog, null, 2)}
+          </pre>
+        ) : (
+          <p className="text-xs text-gray-400">
+            (No debug log found either — the service worker may not have intercepted this request
+            at all.)
+          </p>
+        )}
       </div>
     );
   }
