@@ -6,33 +6,49 @@ self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim(
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   if (event.request.method === "POST" && url.pathname === "/share-target") {
-    event.respondWith(handleShareTarget(event));
-  }
-});
+    // Intercept POST request and wait until files are stored in Cache API
+    event.respondWith(
+      (async () => {
+        try {
+          const formData = await event.request.formData();
+          const files = [];
 
-async function handleShareTarget(event) {
-  const formData = await event.request.formData();
-  const files = formData.getAll("shared_files");
-  await storeFilesToCache(files);
+          // Extract ALL files regardless of form parameter name
+          for (const value of formData.values()) {
+            if (value instanceof File) {
+              files.push(value);
+            }
+          }
 
-  // Redirect to GET /share-target so the app handles UI
-  return Response.redirect("/share-target", 303);
-}
+          const cache = await caches.open(SHARE_CACHE);
 
-// Helper to store File objects in Cache API for UI recovery
-async function storeFilesToCache(files) {
-  const cache = await caches.open(SHARE_CACHE);
+          // Store metadata
+          await cache.put(
+            "share-meta",
+            new Response(JSON.stringify({ count: files.length }), {
+              headers: { "Content-Type": "application/json" },
+            })
+          );
 
-  await cache.put("share-meta", new Response(JSON.stringify({ count: files.length })));
-  for (let i = 0; i < files.length; i++) {
-    await cache.put(
-      `share-file-${i}`,
-      new Response(files[i], {
-        headers: {
-          "Content-Type": files[i].type || "application/octet-stream",
-          "X-File-Name": encodeURIComponent(files[i].name),
-        },
-      })
+          // Store file payloads
+          for (let i = 0; i < files.length; i++) {
+            await cache.put(
+              `share-file-${i}`,
+              new Response(files[i], {
+                headers: {
+                  "Content-Type": files[i].type || "application/octet-stream",
+                  "X-File-Name": encodeURIComponent(files[i].name),
+                },
+              })
+            );
+          }
+        } catch (err) {
+          console.error("Service worker failed to store shared files:", err);
+        }
+
+        // Redirect AFTER cache writes are complete
+        return Response.redirect("/share-target", 303);
+      })()
     );
   }
-}
+});

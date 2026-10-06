@@ -17,30 +17,16 @@
         {
           "name": "shared_files",
           "accept": [
-            "application/pdf",
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            "application/vnd.ms-excel",
-            "image/png",
-            "image/jpeg",
-            "image/webp"
+            "application/pdf", ".pdf",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document", ".docx",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", ".xlsx",
+            "application/vnd.ms-excel", ".xls",
+            "image/png", ".png",
+            "image/jpeg", ".jpg", ".jpeg",
+            "image/webp", ".webp"
           ]
         }
       ]
     }
-  },
-  "file_handlers": [
-    {
-      "action": "/share-target",
-      "accept": {
-        "application/pdf": [".pdf"],
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"],
-        "application/vnd.ms-excel": [".xls"],
-        "image/png": [".png"],
-        "image/jpeg": [".jpg", ".jpeg"],
-        "image/webp": [".webp"]
-      }
-    }
-  ]
+  }
 }

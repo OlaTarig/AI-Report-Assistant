@@ -5,35 +5,59 @@ import type { Conversation } from "../types";
 
 const SHARE_CACHE = "share-target-cache";
 
-async function readSharedFiles(): Promise<File[]> {
-  const cache = await caches.open(SHARE_CACHE);
-  const metaResponse = await cache.match("share-meta");
-  if (!metaResponse) return [];
-  const { count } = await metaResponse.json();
+async function readSharedFiles(retries = 3): Promise<File[]> {
+  for (let attempt = 0; attempt < retries; attempt++) {
+    const cache = await caches.open(SHARE_CACHE);
+    const metaResponse = await cache.match("share-meta");
 
-  const files: File[] = [];
-  for (let i = 0; i < count; i++) {
-    const response = await cache.match(`share-file-${i}`);
-    if (!response) continue;
-    const blob = await response.blob();
-    const name = decodeURIComponent(response.headers.get("X-File-Name") || `shared-file-${i}`);
-    files.push(new File([blob], name, { type: blob.type }));
+    if (metaResponse) {
+      const { count } = await metaResponse.json();
+      const files: File[] = [];
+
+      for (let i = 0; i < count; i++) {
+        const response = await cache.match(`share-file-${i}`);
+        if (!response) continue;
+        const blob = await response.blob();
+        const name = decodeURIComponent(response.headers.get("X-File-Name") || `shared-file-${i}`);
+        files.push(new File([blob], name, { type: blob.type }));
+      }
+
+      // Cleanup cache after reading
+      await cache.delete("share-meta");
+      for (let i = 0; i < count; i++) {
+        await cache.delete(`share-file-${i}`);
+      }
+
+      return files;
+    }
+
+    // Wait 200ms before retrying if cache wasn't ready immediately
+    await new Promise((res) => setTimeout(res, 200));
   }
 
-  await cache.delete("share-meta");
-  for (let i = 0; i < count; i++) await cache.delete(`share-file-${i}`);
-  return files;
+  return [];
 }
 
 export default function ShareTargetHandler() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [sharedFiles, setSharedFiles] = useState<File[]>([]);
+  const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    conversationsApi.listConversations().then(setConversations);
-    readSharedFiles().then(setSharedFiles);
+    async function loadData() {
+      setLoading(true);
+      const [convList, files] = await Promise.all([
+        conversationsApi.listConversations(),
+        readSharedFiles(),
+      ]);
+      setConversations(convList);
+      setSharedFiles(files);
+      setLoading(false);
+    }
+
+    loadData();
   }, []);
 
   async function uploadTo(conversationId: string) {
@@ -51,8 +75,20 @@ export default function ShareTargetHandler() {
   }
 
   async function createAndUpload() {
-    const conversation = await conversationsApi.createConversation();
-    await uploadTo(conversation.id);
+    try {
+      const conversation = await conversationsApi.createConversation();
+      await uploadTo(conversation.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create conversation.");
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-brand-offwhite text-gray-500">
+        Loading shared files…
+      </div>
+    );
   }
 
   if (sharedFiles.length === 0 && !uploading) {
