@@ -10,7 +10,7 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       (async () => {
         try {
-          const formData = await event.request.formData();
+          const formData = await event.request.clone().formData();
           const files = [];
 
           // Iterate through all values to catch any file regardless of field name
